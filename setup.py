@@ -22,7 +22,8 @@ VERSION = '0.1.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    'astropy', 'dask', 'h5py', 'matplotlib', 'numpy', 'setuptools', 'tqdm', 'xarray'
+    'astropy', 'dask', 'h5py', 'matplotlib', 'numpy', 
+    'setuptools', 'tqdm', 'xarray', 'bokeh', 'distributed'
 ]
 
 # What packages are optional?
