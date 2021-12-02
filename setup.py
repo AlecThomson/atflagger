@@ -12,17 +12,17 @@ from shutil import rmtree
 from setuptools import find_packages, setup, Command
 
 # Package meta-data.
-NAME = 'mypackage'
-DESCRIPTION = 'My short description for my project.'
-URL = 'https://github.com/me/myproject'
-EMAIL = 'me@example.com'
-AUTHOR = 'Awesome Soul'
-REQUIRES_PYTHON = '>=3.6.0'
+NAME = 'atflagger'
+DESCRIPTION = 'Simple method for flagging UWL data.'
+URL = 'https://github.com/AlecThomson/atflagger'
+EMAIL = 'alec.thomson@csiro.au'
+AUTHOR = 'Alec Thomson'
+REQUIRES_PYTHON = '>=3.8'
 VERSION = '0.1.0'
 
 # What packages are required for this module to be executed?
 REQUIRED = [
-    # 'requests', 'maya', 'records',
+    'astropy', 'dask', 'h5py', 'matplotlib', 'numpy', 'setuptools', 'tqdm', 'xarray'
 ]
 
 # What packages are optional?
@@ -103,13 +103,13 @@ setup(
     author_email=EMAIL,
     python_requires=REQUIRES_PYTHON,
     url=URL,
-    packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
+    # packages=find_packages(exclude=["tests", "*.tests", "*.tests.*", "tests.*"]),
     # If your package is a single module, use this instead of 'packages':
-    # py_modules=['mypackage'],
+    py_modules=['atflagger'],
 
-    # entry_points={
-    #     'console_scripts': ['mycli=mymodule:cli'],
-    # },
+    entry_points={
+        'console_scripts': ['atflagger=atflagger:cli'],
+    },
     install_requires=REQUIRED,
     extras_require=EXTRAS,
     include_package_data=True,
@@ -120,9 +120,8 @@ setup(
         'License :: OSI Approved :: MIT License',
         'Programming Language :: Python',
         'Programming Language :: Python :: 3',
-        'Programming Language :: Python :: 3.6',
+        'Programming Language :: Python :: 3.8',
         'Programming Language :: Python :: Implementation :: CPython',
-        'Programming Language :: Python :: Implementation :: PyPy'
     ],
     # $ setup.py publish support.
     cmdclass={
