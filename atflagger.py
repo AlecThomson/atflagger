@@ -94,23 +94,28 @@ def flag(filename, sb_label, beam_label='beam_0', sigma=3, n_windows=100):
         log.info(f"Subband {sb_label} now has {f_per:.2f}% flagged")
 
 
-def main(filename, beam_label='beam_0', sigma=3, n_windows=100):
+def main(filenames, beam_label='beam_0', sigma=3, n_windows=100):
     # Initialise dask
     cluster = LocalCluster()
     client = Client(cluster)
     log.info(f"Dask running at {client.dashboard_link}")
 
-    # Copy hdf5 file
-    new_filename = filename.replace('.hdf', '.atflagged.hdf')
-    shutil.copy(filename, new_filename)
+    for filename in filenames:
+        log.info(f"Processing file {filename}")
+        # Copy hdf5 file
+        new_filename = filename.replace('.hdf', '.atflagged.hdf')
+        shutil.copy(filename, new_filename)
 
-    log.info(f"Create new file: {new_filename}")
+        log.info(f"Create new file: {new_filename}")
 
-    sb_avail = get_subbands(new_filename, beam_label=beam_label)
+        sb_avail = get_subbands(new_filename, beam_label=beam_label)
 
-    # Iterate through subbands
-    for sb_label in sb_avail:
-        flag(new_filename, sb_label, beam_label=beam_label, sigma=sigma, n_windows=n_windows)
+        # Iterate through subbands
+        for sb_label in sb_avail:
+            flag(new_filename, sb_label, beam_label=beam_label, sigma=sigma, n_windows=n_windows)
+        
+        log.info(f"Finished processing file {filename}")
+    
 
     # Close dask
     client.close()
@@ -121,7 +126,7 @@ def cli():
     """Command-line interface"""
     import argparse
     parser = argparse.ArgumentParser(description='Flag SDHDF data')
-    parser.add_argument('filename', type=str, help='Input SDHDF file')
+    parser.add_argument('filenames', nargs='+', type=str, help='Input SDHDF file(s)')
     parser.add_argument('--beam', type=str, default='beam_0', help='Beam label')
     parser.add_argument('--sigma', type=float, default=3, help='Sigma clipping threshold')
     parser.add_argument('--n_windows', type=int, default=100, help='Number of windows to use in box filter')
@@ -131,7 +136,7 @@ def cli():
         format="%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    main(args.filename, args.beam, args.sigma, args.n_windows)
+    main(args.filenames, args.beam, args.sigma, args.n_windows)
 
 if __name__ == '__main__':
     cli()
