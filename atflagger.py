@@ -88,9 +88,9 @@ def flag(filename, sb_label, beam_label='beam_0', sigma=3, n_windows=100):
         mask_red = mask.sum(dim=('beam','bin','polarization')) > 0
         log.info(f"Flagging {sb_label} and writing to file...")
         # Write flags back to file
-        h5[sb_flag][:] = mask_red.values
+        h5[sb_flag][:] = mask_red.values.astype(int)
 
-        f_per = np.sum(h5[sb_flag]) / np.sum(np.ones_like(h5[sb_flag])) * 100
+        f_per = np.sum(h5[sb_flag].astype(bool)) / np.sum(np.ones_like(h5[sb_flag])) * 100
         log.info(f"Subband {sb_label} now has {f_per:.2f}% flagged - {filename}")
 
 
