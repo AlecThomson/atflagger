@@ -13,14 +13,17 @@ from dask.distributed import LocalCluster, Client
 
 def box_filter(spectrum, sigma=3, n_windows=100):
     """
-    
+    Filter a spectrum using a box filter.
     """
+    # Divide spectrum into windows
     window_size = len(spectrum)//n_windows
     dat_filt = np.zeros_like(spectrum).astype(bool)
+    # Iterate through windows
     for i in range(n_windows):
         _dat = spectrum[i*window_size:window_size+i*window_size]
         with warnings.catch_warnings():
             warnings.simplefilter("ignore")
+            # Use sigma clipping to remove outliers
             _dat_filt = sigma_clip(_dat, sigma=sigma, maxiters=None, stdfunc=mad_std, masked=True)
         dat_filt[i*window_size:window_size+i*window_size] = _dat_filt.mask
     return dat_filt
