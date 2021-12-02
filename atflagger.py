@@ -39,7 +39,7 @@ def flag(filename, sb_label, beam_label='beam_0', sigma=3, n_windows=100):
     # Open HDF5 file
     with h5py.File(filename, 'r+') as h5:
         # Read header info
-        log.info(f"Processing subband {sb_label}")
+        log.info(f"Processing subband {sb_label} - {filename}")
         sb_data = f"{beam_label}/{sb_label}/astronomy_data/data"
         sb_flag = f"{beam_label}/{sb_label}/astronomy_data/flag"
         sb_freq = f"{beam_label}/{sb_label}/astronomy_data/frequency"
@@ -48,10 +48,10 @@ def flag(filename, sb_label, beam_label='beam_0', sigma=3, n_windows=100):
         try:
             flag = np.array(h5[sb_flag])
         except KeyError:
-            raise KeyError(f"No flagging information found for subband {sb_label} - run autoflagger first")
+            raise KeyError(f"No flagging information found for subband {sb_label} - {filename} - run autoflagger first")
 
         f_per = np.sum(flag) / np.sum(np.ones_like(flag)) * 100
-        log.info(f"Subband {sb_label} has {f_per:.2f}% flagged")
+        log.info(f"Subband {sb_label} has {f_per:.2f}% flagged - {filename}")
 
         data_xr = xr.DataArray(
         data, 
@@ -91,7 +91,7 @@ def flag(filename, sb_label, beam_label='beam_0', sigma=3, n_windows=100):
         h5[sb_flag][:] = mask_red.values
 
         f_per = np.sum(h5[sb_flag]) / np.sum(np.ones_like(h5[sb_flag])) * 100
-        log.info(f"Subband {sb_label} now has {f_per:.2f}% flagged")
+        log.info(f"Subband {sb_label} now has {f_per:.2f}% flagged - {filename}")
 
 
 def main(filenames, beam_label='beam_0', sigma=3, n_windows=100):
