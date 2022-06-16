@@ -66,8 +66,19 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100):
         )
 
         # Set flags
+        # Ensure flag has same shape as data
+        flag_reshape = flag.copy()
+        for i, s in enumerate(data.shape):
+            if i > len(flag_reshape.shape) -1:
+                flag_reshape = np.expand_dims(flag_reshape, axis=-1)
+            else:
+                print(i,s)
+                if flag_reshape.shape[i] == s:
+                    continue
+                else:
+                    flag_reshape = np.expand_dims(flag_reshape, axis=i)
         data_xr_flg = data_xr.where(
-            ~flag[:, np.newaxis, np.newaxis, :, np.newaxis].astype(bool)
+            ~flag_reshape[:, np.newaxis, np.newaxis, :, np.newaxis].astype(bool)
         )
         # Set chunks for parallel processing
         data_xr_flg = data_xr_flg.chunk(
