@@ -80,15 +80,9 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100):
             ~flag_reshape.astype(bool)
         )
         # Set chunks for parallel processing
-        data_xr_flg = data_xr_flg.chunk(
-            {
-                "time": 1,
-                "beam": 1,
-                "polarization": 1,
-                "frequency": len(data_xr.frequency),
-                "bin": 1,
-            }
-        )
+        chunks = {d:1 for d in data_xr_flg.dims}
+        chunks["frequency"] = len(data_xr.frequency)
+        data_xr_flg = data_xr_flg.chunk(chunks)
         mask = xr.apply_ufunc(
             box_filter,
             data_xr_flg,
@@ -101,7 +95,9 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100):
         )
 
         # Reduce mask
-        mask_red = mask.sum(dim=("beam", "bin", "polarization")) > 0
+        dims = list(data_xr_flg.dims)
+        dims.remove("frequency")
+        mask_red = mask.sum(dim=dims) > 0
         log.info(f"Flagging {sb_label} and writing to file...")
         # Write flags back to file
         h5[sb_flag][:] = mask_red.values.astype(int)
