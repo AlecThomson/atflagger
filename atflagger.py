@@ -41,7 +41,7 @@ def get_subbands(filename, beam_label="beam_0"):
 
 def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100):
     # Open HDF5 file
-    with h5py.File(filename, "r") as h5:
+    with h5py.File(filename, "r+") as h5:
         # Read header info
         log.info(f"Processing subband {sb_label} - {filename}")
         sb_data = f"{beam_label}/{sb_label}/astronomy_data/data"
