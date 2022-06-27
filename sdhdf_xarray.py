@@ -295,7 +295,7 @@ def decimate(
 
 def _decimate_data(
     dat: np.ndarray, flag: np.ndarray, nchan: int = 1024
-) -> Tuple(np.array, np.array):
+) -> Tuple[np.array, np.array]:
     """Decimate array
 
     Args:
