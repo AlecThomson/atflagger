@@ -203,7 +203,7 @@ def get_persistent_rfi() -> pd.DataFrame:
     return rfi_df
 
 
-def flag_persistent(dataset: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray:
+def flag_persistent(dataset: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray]:
     """Flag persistent RFI
 
     Args:
@@ -295,7 +295,7 @@ def decimate(
 
 def _decimate_data(
     dat: np.ndarray, flag: np.ndarray, nchan: int = 1024
-) -> Tuple[np.array, np.array]:
+) -> Tuple(np.array, np.array):
     """Decimate array
 
     Args:
