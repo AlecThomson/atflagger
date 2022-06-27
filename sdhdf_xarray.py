@@ -43,7 +43,7 @@ def create(filename:str, in_memory:bool=True) -> xr.Dataset:
                 if has_flags:
                     flag = h5[f"{beam_label}/{sb_label}/astronomy_data/flag"]
                     # Ensure flag has same shape as data
-                    flag_reshape = flag.copy()
+                    flag_reshape = flag[:].copy()
                     for i, s in enumerate(data.shape):
                         if i > len(flag_reshape.shape) -1:
                             flag_reshape = np.expand_dims(flag_reshape, axis=-1)
