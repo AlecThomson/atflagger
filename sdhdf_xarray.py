@@ -1,5 +1,4 @@
-
-from typing import Dict, List, Tuple
+from typing import Dict, List, Tuple, Union
 import h5py
 from astropy.table import Table
 import numpy as np
@@ -14,22 +13,42 @@ import logging as log
 import pandas as pd
 from dask.distributed import LocalCluster, Client
 
+
 def get_subbands(filename, beam_label="beam_0"):
+    """Find available subbands for a givent beam.
+
+    Args:
+        filename (str): SDHDF file to read.
+        beam_label (str, optional): Beam to look at. Defaults to "beam_0".
+
+    Returns:
+        Table: Available subbands
+    """
     with h5py.File(filename, "r") as h5:
         # Read header info
         sb_avail = Table.read(h5, path=beam_label + "/metadata/band_params")
     return sb_avail["LABEL"]
 
-def create(filename:str, in_memory:bool=True) -> xr.Dataset:
+
+def create(filename: str, in_memory: bool = True) -> Dict[str, xr.DataArray]:
+    """Create a 'dataset' from SDHDF data
+    Note - Creating an Xarray DataSet would be preferable, but seems slow
+    at the moment. Using a Dict of Arrays instead.
+
+    Args:
+        filename (str): SDHDF file to open.
+        in_memory (bool, optional): Load all data into memory. Defaults to True.
+
+    Returns:
+        Dict[str,xr.DataArray]: Data arrays for sub-band.
+    """
     with h5py.File(filename, "r") as h5:
         keys = list(h5.keys())
         beam_labels = [key for key in keys if "beam_" in key]
 
         sb_avail = {}
         for beam_label in beam_labels:
-            sb_avail[beam_label] = get_subbands(
-                filename, beam_label=beam_label
-            )
+            sb_avail[beam_label] = get_subbands(filename, beam_label=beam_label)
 
         data_arrs = {}
         for beam_label in tqdm(beam_labels, desc="Reading beams"):
@@ -38,14 +57,16 @@ def create(filename:str, in_memory:bool=True) -> xr.Dataset:
                 sb_data = f"{beam_label}/{sb_label}/astronomy_data/data"
                 sb_freq = f"{beam_label}/{sb_label}/astronomy_data/frequency"
                 sb_para = f"{beam_label}/{sb_label}/metadata/obs_params"
-                has_flags = "flag" in h5[f"{beam_label}/{sb_label}/astronomy_data"].keys()
+                has_flags = (
+                    "flag" in h5[f"{beam_label}/{sb_label}/astronomy_data"].keys()
+                )
                 data = h5[sb_data]
                 if has_flags:
                     flag = h5[f"{beam_label}/{sb_label}/astronomy_data/flag"]
                     # Ensure flag has same shape as data
                     flag_reshape = flag[:].copy()
                     for i, s in enumerate(data.shape):
-                        if i > len(flag_reshape.shape) -1:
+                        if i > len(flag_reshape.shape) - 1:
                             flag_reshape = np.expand_dims(flag_reshape, axis=-1)
                         else:
                             if flag_reshape.shape[i] == s:
@@ -83,9 +104,19 @@ def create(filename:str, in_memory:bool=True) -> xr.Dataset:
             # dataset = xr.combine_by_coords(data_arrs)
         return data_arrs
 
-def box_filter(spectrum: np.ndarray, sigma=3, n_windows=100) -> np.ndarray:
-    """
-    Filter a spectrum using a box filter.
+
+def box_filter(
+    spectrum: np.ndarray, sigma: float = 3, n_windows: int = 100
+) -> np.ndarray:
+    """Filter a spectrum using a box filter.
+
+    Args:
+        spectrum (np.ndarray): 1D spectrum array.
+        sigma (int, optional): Stddev level to sigma clip to . Defaults to 3.
+        n_windows (int, optional): Number of windows to divide the band into. Defaults to 100.
+
+    Returns:
+        np.ndarray: Flagged array
     """
     # Divide spectrum into windows
     window_size = len(spectrum) // n_windows
@@ -102,8 +133,20 @@ def box_filter(spectrum: np.ndarray, sigma=3, n_windows=100) -> np.ndarray:
         dat_filt[i * window_size : window_size + i * window_size] = _dat_filt.mask
     return dat_filt
 
-def flag_auto(dataset: Dict[str,xr.DataArray], sigma:int=3, n_windows:int=100) -> Dict[str,xr.DataArray]:
-    """
+
+def flag_auto(
+    dataset: Dict[str, xr.DataArray], sigma: float = 3, n_windows: int = 100
+) -> Dict[str, xr.DataArray]:
+    """Run autoflagging on dataset.
+
+    Args:
+        dataset (Dict[str, xr.DataArray]): SDHDF dataset.
+        sigma (float, optional): Stddev level to clip to. Defaults to 3.
+        n_windows (int, optional): Number of windows to divide the band. Defaults to 100.
+
+    Returns:
+        Dict[str, xr.DataArray]: Flagged dataset.
+    """    """
     Flag data based on a box filter.
     """
     # Create a new dataset
@@ -118,7 +161,7 @@ def flag_auto(dataset: Dict[str,xr.DataArray], sigma:int=3, n_windows:int=100) -
             ~flag.astype(bool),
         )
         # Set chunks for parallel processing
-        chunks = {d:1 for d in dat_flg.dims}
+        chunks = {d: 1 for d in dat_flg.dims}
         chunks["frequency"] = len(dat_flg.frequency)
         dat_flg = dat_flg.chunk(chunks)
         mask = xr.apply_ufunc(
@@ -134,30 +177,56 @@ def flag_auto(dataset: Dict[str,xr.DataArray], sigma:int=3, n_windows:int=100) -
         dataset_filt[sb.replace("data", "flag")] = mask
     return dataset_filt
 
-def get_persistent_rfi():
-    """
-    Get persistent RFI from the database.
+
+def get_persistent_rfi() -> pd.DataFrame:
+    """Read persistent RFI file
+
+    Returns:
+        pd.Dataframe: Persistent RFI data.
     """
     rfi_df = pd.read_csv(
-        "persistentRFI.dat", 
+        "persistentRFI.dat",
         sep=",",
         # skip_blank_lines=True,
         comment="#",
-        names=["type", "observatory label", "receiver label", "freq0 MHz", "freq1 MHz", "MJD0", "MJD1", "text string for label",]
+        names=[
+            "type",
+            "observatory label",
+            "receiver label",
+            "freq0 MHz",
+            "freq1 MHz",
+            "MJD0",
+            "MJD1",
+            "text string for label",
+        ],
     )
     return rfi_df
 
-def flag_persistent(dataset: Dict[str,xr.DataArray]) -> xr.Dataset:
+
+def flag_persistent(dataset: Dict[str, xr.DataArray]) -> Dict[str, xr.DataArray:
+    """Flag persistent RFI
+
+    Args:
+        dataset (Dict[str, xr.DataArray]): SDHDF dataset.
+
+    Returns:
+        Dict[str, xr.DataArray: Flagged ata.
+    """    
     rfi_df = get_persistent_rfi()
     flag_sbs = [sb for sb in dataset.keys() if "flag" in sb]
-    for i, row in tqdm(rfi_df.iterrows(), desc="Flagging persistent RFI", total=len(rfi_df)):
+    for i, row in tqdm(
+        rfi_df.iterrows(), desc="Flagging persistent RFI", total=len(rfi_df)
+    ):
         for sb in tqdm(flag_sbs, desc="Flagging subbands", leave=False):
             # Get the data
-            flag = dataset[sb]#.astype(bool)
-            if row["freq0 MHz"] < flag.frequency.min() or row["freq1 MHz"] > flag.frequency.max():
+            flag = dataset[sb]  # .astype(bool)
+            if (
+                row["freq0 MHz"] < flag.frequency.min()
+                or row["freq1 MHz"] > flag.frequency.max()
+            ):
                 continue
             mask = (
-                (flag.frequency > row["freq0 MHz"]) 
+                (flag.frequency > row["freq0 MHz"])
                 & (flag.frequency < row["freq1 MHz"])
                 & (flag.MJD > row["MJD0"])
                 & (flag.MJD < row["MJD1"])
@@ -165,9 +234,24 @@ def flag_persistent(dataset: Dict[str,xr.DataArray]) -> xr.Dataset:
             dataset[sb] = xr.where(mask, 1, flag)
     return dataset
 
-def decimate(dataset: Dict[str,xr.DataArray], nchan: int=None, target_bw:float=None) -> Dict[str,xr.DataArray]:
-    """
+
+def decimate(
+    dataset: Dict[str, xr.DataArray], nchan: int = None, target_bw: float = None
+) -> Dict[str, xr.DataArray]:
+    """EXPERIMENTAL
     Decimate the data.
+
+    Args:
+        dataset (Dict[str, xr.DataArray]): SDHDF dataset.
+        nchan (int, optional): Target channels per subband. Defaults to None.
+        target_bw (float, optional): Target bandwidth per channel. Defaults to None.
+
+    Raises:
+        ValueError: If both nchan and target_bw are specified.
+        ValueError: If neither nchan or target_bw are specified.
+
+    Returns:
+        Dict[str, xr.DataArray]: Flagged dataset.
     """
     if nchan is None and target_bw is None:
         raise ValueError("Must specify either nchan or target_bw")
@@ -185,7 +269,7 @@ def decimate(dataset: Dict[str,xr.DataArray], nchan: int=None, target_bw:float=N
         # Get the data
         dat = dataset[sb]
         # Set chunks for parallel processing
-        chunks = {d:1 for d in dat.dims}
+        chunks = {d: 1 for d in dat.dims}
         chunks["frequency"] = len(dat.frequency)
         dat = dat.chunk(chunks)
         flag = dataset[sb.replace("data", "flag")]
@@ -208,8 +292,20 @@ def decimate(dataset: Dict[str,xr.DataArray], nchan: int=None, target_bw:float=N
         dataset_dec[sb.replace("data", "flag")] = flag_dec
     return dataset_dec
 
-def _decimate_data(dat: np.ndarray, flag:np.ndarray, nchan: int=1024) -> xr.DataArray:
-    """
+
+def _decimate_data(
+    dat: np.ndarray, flag: np.ndarray, nchan: int = 1024
+) -> Tuple[np.array, np.array]:
+    """Decimate array
+
+    Args:
+        dat (np.ndarray): 1D spectrum to decimate.
+        flag (np.ndarray): 1D flag spectrum to decimate.
+        nchan (int, optional): Taget number of channels per subband. Defaults to 1024.
+
+    Returns:
+        Tuple[np.array, np.array]: Decimated data and flags
+    """    """
     Decimate a dataset.
     """
     # Determine the number of channels average at time
@@ -219,4 +315,3 @@ def _decimate_data(dat: np.ndarray, flag:np.ndarray, nchan: int=1024) -> xr.Data
     dat = np.ma.array(dat, mask=flag)
     dat_avg = np.ma.mean(dat.reshape((nchan, nchan_avg)), axis=1)
     return dat_avg.data, dat_avg.mask
-
