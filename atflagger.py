@@ -45,7 +45,7 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_we
         # Read header info
         log.info(f"Processing subband {sb_label} - {filename}")
         sb_data = f"{beam_label}/{sb_label}/astronomy_data/data"
-        sb_flag = f"{beam_label}/{sb_label}/astronomy_data/flag" if not use_weights else f"{beam_label}/{sb_label}/astronomy_data/weights"
+        sb_flag = f"{beam_label}/{sb_label}/astronomy_data/flag" if not use_weights else f"{beam_label}/{sb_label}/astronomy_data/data_weights"
         sb_freq = f"{beam_label}/{sb_label}/astronomy_data/frequency"
         data = h5[sb_data]
         freq = np.array(h5[sb_freq])
