@@ -39,13 +39,13 @@ def get_subbands(filename, beam_label="beam_0"):
     return sb_avail["LABEL"]
 
 
-def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100):
+def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False):
     # Open HDF5 file
     with h5py.File(filename, "r+") as h5:
         # Read header info
         log.info(f"Processing subband {sb_label} - {filename}")
         sb_data = f"{beam_label}/{sb_label}/astronomy_data/data"
-        sb_flag = f"{beam_label}/{sb_label}/astronomy_data/flag"
+        sb_flag = f"{beam_label}/{sb_label}/astronomy_data/flag" if not use_weights else f"{beam_label}/{sb_label}/astronomy_data/weights"
         sb_freq = f"{beam_label}/{sb_label}/astronomy_data/frequency"
         data = h5[sb_data]
         freq = np.array(h5[sb_freq])
@@ -108,7 +108,7 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100):
         log.info(f"Subband {sb_label} now has {f_per:.2f}% flagged - {filename}")
 
 
-def main(filenames, beam_label="beam_0", sigma=3, n_windows=100):
+def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False):
     # Initialise dask
     cluster = LocalCluster()
     client = Client(cluster)
@@ -132,6 +132,7 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100):
                 beam_label=beam_label,
                 sigma=sigma,
                 n_windows=n_windows,
+                use_weights=use_weights,
             )
 
         log.info(f"Finished processing file {filename}")
@@ -158,13 +159,24 @@ def cli():
         default=100,
         help="Number of windows to use in box filter",
     )
+    parser.add_argument(
+        "--use_weights",
+        action="store_true",
+        help="Use weights table instead of flag table",
+    )
     args = parser.parse_args()
     log.basicConfig(
         level=log.INFO,
         format="%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s",
         datefmt="%Y-%m-%d %H:%M:%S",
     )
-    main(args.filenames, args.beam, args.sigma, args.n_windows)
+    main(
+        filenames=args.filenames,
+        beam_label=args.beam,
+        sigma=args.sigma,
+        n_windows=args.n_windows,
+        use_weights=args.use_weights
+    )
 
 
 if __name__ == "__main__":
