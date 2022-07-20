@@ -118,7 +118,11 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=Fal
     for filename in filenames:
         log.info(f"Processing file {filename}")
         # Copy hdf5 file
-        new_filename = filename.replace(".hdf", ".atflagged.hdf")
+        new_filename = filename[::-1].replace(
+            ".hdf"[::-1],
+            ".atflagged.hdf"[::-1],
+            1,
+        )[::-1] # Reverse to replace .hdf with .atflagged.hdf
         shutil.copy(filename, new_filename)
 
         log.info(f"Create new file: {new_filename}")
