@@ -97,6 +97,7 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_we
         # Reduce mask
         dims = list(data_xr_flg.dims)
         dims.remove("frequency")
+        dims.remove("time")
         mask_red = mask.sum(dim=dims) > 0
         log.info(f"Flagging {sb_label} and writing to file...")
         # Write flags back to file
