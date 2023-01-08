@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "atflagger"
-version = "0.2.0"
+version = "0.2.1"
 description = "Simple method for flagging UWL data."
 authors = ["Alec Thomson"]
 license = "MIT"
@@ -9,14 +9,14 @@ readme = "README.md"
 [tool.poetry.dependencies]
 python = "^3.8"
 astropy = "^5"
-dask = "^2022.12.1"
+dask = "^2022"
 matplotlib = "*"
 h5py = "*"
 numpy = "*"
 tqdm = "*"
 xarray = "*"
 bokeh = "*"
-distributed = "^2022.12.1"
+distributed = "^2022"
 
 [tool.poetry.group.dev.dependencies]
 isort = "^5.11.4"
