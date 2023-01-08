@@ -4,6 +4,14 @@ A simple flagger for continuum UWL data. Flag persistent RFI first, then run thi
 
 ## Installation
 
+Installing requires `pip` and `python3` (3.8 and up).
+
+Stable version:
+```
+pip install atflagger
+```
+
+Latest version:
 ```
 pip install git+https://github.com/AlecThomson/atflagger
 ```
