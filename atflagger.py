@@ -202,7 +202,7 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=Fal
             for filename in filenames:
                 logger.info(f"Processing file {filename}")
                 # Copy hdf5 file
-                exts = ("hdf", "hdf5", "sdhdf")
+                exts = ("hdf", "hdf5", "sdhdf", "h5")
                 if not any(filename.endswith(f".{ext}") for ext in exts):
                     raise ValueError(f"I don't recognose the file extension of '{filename}' (must be one of {exts})")
                 for ext in exts:
