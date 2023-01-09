@@ -142,3 +142,9 @@ dask-worker-space/
 
 # Notebooks
 scratch.ipynb
+
+# UWL files
+*.hdf
+*.h5
+*.hdf5
+*.sdhdf
