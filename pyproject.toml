@@ -1,6 +1,6 @@
 [tool.poetry]
 name = "atflagger"
-version = "0.2.1"
+version = "0.2.2"
 description = "Simple method for flagging UWL data."
 authors = ["Alec Thomson"]
 license = "MIT"
