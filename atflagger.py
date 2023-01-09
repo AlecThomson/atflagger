@@ -61,7 +61,9 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_we
 
         data_xr = xr.DataArray(
             data,
-            dims=h5[sb_data].attrs["DIMENSION_LABELS"],
+            dims=[
+                d.decode() if isinstance(d, bytes) else d for d in h5[sb_data].attrs["DIMENSION_LABELS"]
+            ],
             coords={"frequency": freq,},
         )
 
