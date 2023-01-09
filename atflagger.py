@@ -16,9 +16,20 @@ from tqdm.auto import tqdm, trange
 import xarray as xr
 import warnings
 import shutil
-import logging as log
+import logging
 from dask.distributed import LocalCluster, Client
 
+logger = logging.getLogger(__name__)
+logging.basicConfig(
+    level=logging.INFO,
+    format="%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s",
+    datefmt="%Y-%m-%d %H:%M:%S",
+)
+logger.setLevel(logging.INFO)
+
+class AutoFlagError(Exception):
+    def __init__(self, msg):
+        self.msg = msg
 
 def box_filter(spectrum, sigma=3, n_windows=100):
     """
@@ -70,21 +81,62 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_we
     # Open HDF5 file
     with h5py.File(filename, "r+") as h5:
         # Read header info
-        log.info(f"Processing subband {sb_label} - {filename}")
+        logger.info(f"Processing subband {sb_label} - {filename}")
+
+        # Look for old naming schemes
+        old_flag = f"{beam_label}/{sb_label}/astronomy_data/flag" in h5
+        new_flag = f"{beam_label}/{sb_label}/astronomy_data/flags" in h5
+        old_weights = f"{beam_label}/{sb_label}/astronomy_data/data_weights" in h5
+        new_weights = f"{beam_label}/{sb_label}/astronomy_data/weights" in h5
+
+        if old_flag:
+            logger.warning(
+                f"Old flagging scheme detected - {filename}:{beam_label}/{sb_label}/astronomy_data/flag."
+            )
+            if not new_flag:
+                logger.warning(f"Renaming to {beam_label}/{sb_label}/astronomy_data/flags (new scheme).")
+                h5.copy(
+                    f"{beam_label}/{sb_label}/astronomy_data/flag",
+                    f"{beam_label}/{sb_label}/astronomy_data/flags",
+                )
+                del h5[f"{beam_label}/{sb_label}/astronomy_data/flag"]
+            else:
+                logger.warning(f"Also found {beam_label}/{sb_label}/astronomy_data/flags (new scheme).")
+                logger.warning(f"Deleting {beam_label}/{sb_label}/astronomy_data/flag (old scheme) and using new scheme.")
+                del h5[f"{beam_label}/{sb_label}/astronomy_data/flag"]
+
+        elif not new_flag:
+            raise AutoFlagError(f"No flagging information found for {filename}:{beam_label}/{sb_label} - run persistent flagging first")
+
+        if old_weights:
+            logger.warning(
+                f"Old weights scheme detected - {filename}:{beam_label}/{sb_label}/astronomy_data/data_weights."
+            )
+            if not new_weights:
+                logger.warning(f"Renaming to {beam_label}/{sb_label}/astronomy_data/weights (new scheme).")
+                h5.copy(
+                    f"{beam_label}/{sb_label}/astronomy_data/data_weights",
+                    f"{beam_label}/{sb_label}/astronomy_data/weights",
+                )
+                del h5[f"{beam_label}/{sb_label}/astronomy_data/data_weights"]
+            else:
+                logger.warning(f"Also found {beam_label}/{sb_label}/astronomy_data/weights (new scheme).")
+                logger.warning(f"Deleting {beam_label}/{sb_label}/astronomy_data/data_weights (old scheme) and using new scheme.")
+                del h5[f"{beam_label}/{sb_label}/astronomy_data/data_weights"]
+
+        elif not new_weights and use_weights:
+            raise AutoFlagError(f"No weights information found for {filename}:{beam_label}/{sb_label} - run persistent flagging first")
+
+
         sb_data = f"{beam_label}/{sb_label}/astronomy_data/data"
-        sb_flag = f"{beam_label}/{sb_label}/astronomy_data/flag" if not use_weights else f"{beam_label}/{sb_label}/astronomy_data/data_weights"
+        sb_flag = f"{beam_label}/{sb_label}/astronomy_data/flags" if not use_weights else f"{beam_label}/{sb_label}/astronomy_data/weights"
         sb_freq = f"{beam_label}/{sb_label}/astronomy_data/frequency"
         data = h5[sb_data]
         freq = np.array(h5[sb_freq])
-        try:
-            flag = np.array(h5[sb_flag])
-        except KeyError:
-            raise KeyError(
-                f"No flagging information found for subband {sb_label} - {filename} - run autoflagger first"
-            )
+        flag = np.array(h5[sb_flag])
 
         f_per = np.sum(flag) / np.sum(np.ones_like(flag)) * 100
-        log.info(f"Subband {sb_label} has {f_per:.2f}% flagged - {filename}")
+        logger.info(f"Subband {sb_label} has {f_per:.2f}% flagged - {filename}")
 
         data_xr = xr.DataArray(
             data,
@@ -128,14 +180,14 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_we
         dims.remove("frequency")
         dims.remove("time")
         mask_red = mask.sum(dim=dims) > 0
-        log.info(f"Flagging {sb_label} and writing to file...")
+        logger.info(f"Flagging {sb_label} and writing to file...")
         # Write flags back to file
         h5[sb_flag][:] = mask_red.values.astype(int)
 
         f_per = (
             np.sum(h5[sb_flag]) / np.sum(np.ones_like(h5[sb_flag])) * 100
         )
-        log.info(f"Subband {sb_label} now has {f_per:.2f}% flagged - {filename}")
+        logger.info(f"Subband {sb_label} now has {f_per:.2f}% flagged - {filename}")
 
         # Update history
         update_history(filename, args)
@@ -145,10 +197,10 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=Fal
     # Initialise dask
     with LocalCluster() as cluster:
         with Client(cluster) as client:
-            log.info(f"Dask running at {client.dashboard_link}")
+            logger.info(f"Dask running at {client.dashboard_link}")
 
             for filename in filenames:
-                log.info(f"Processing file {filename}")
+                logger.info(f"Processing file {filename}")
                 # Copy hdf5 file
                 exts = ("hdf", "hdf5", "sdhdf")
                 if not any(filename.endswith(f".{ext}") for ext in exts):
@@ -164,7 +216,7 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=Fal
                 )[::-1] # Reverse to replace .hdf with .atflagged.hdf
                 shutil.copy(filename, new_filename)
 
-                log.info(f"Create new file: {new_filename}")
+                logger.info(f"Create new file: {new_filename}")
 
                 sb_avail = get_subbands(new_filename, beam_label=beam_label)
 
@@ -178,9 +230,9 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=Fal
                         n_windows=n_windows,
                         use_weights=use_weights,
                     )
-                log.info(f"Finished processing file {filename}")
+                logger.info(f"Finished processing file {filename}")
 
-            log.info("Done!")
+            logger.info("Done!")
 
 
 def cli():
@@ -205,11 +257,6 @@ def cli():
         help="Use weights table instead of flag table",
     )
     args = parser.parse_args()
-    log.basicConfig(
-        level=log.INFO,
-        format="%(asctime)s.%(msecs)03d %(levelname)s %(module)s - %(funcName)s: %(message)s",
-        datefmt="%Y-%m-%d %H:%M:%S",
-    )
     main(
         filenames=args.filenames,
         beam_label=args.beam,
