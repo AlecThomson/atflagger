@@ -73,15 +73,18 @@ def update_history(filename, args):
                 "PROC_HOST": socket.getfqdn(),
             }
         )
+        # Datasets cannot be extended, so delete and recreate
         del f["metadata"]["history"]
         _ = f.create_dataset("metadata/history", data=history.as_array())
 
 def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False):
-    args = locals()
     # Open HDF5 file
     with h5py.File(filename, "r+") as h5:
         # Read header info
         logger.info(f"Processing subband {sb_label} - {filename}")
+
+        # We've decided on 'flags' and 'weights' as the schema
+        # This will be enforced here
 
         # Look for old naming schemes
         old_flag = f"{beam_label}/{sb_label}/astronomy_data/flag" in h5
@@ -189,11 +192,10 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_we
         )
         logger.info(f"Subband {sb_label} now has {f_per:.2f}% flagged - {filename}")
 
-        # Update history
-        update_history(filename, args)
-
 
 def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False):
+    args = locals()
+    _ = args.pop("filenames")
     # Initialise dask
     with LocalCluster() as cluster:
         with Client(cluster) as client:
@@ -230,6 +232,8 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=Fal
                         n_windows=n_windows,
                         use_weights=use_weights,
                     )
+                logger.info("Updating history...")
+                update_history(new_filename, args)
                 logger.info(f"Finished processing file {filename}")
 
             logger.info("Done!")
