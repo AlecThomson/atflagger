@@ -1,5 +1,13 @@
+#!/usr/bin/env python3
+# -*- coding: utf-8 -*-
+"""
+atflagger - Automatic flagging of UWL data.
+"""
 import h5py
 from astropy.table import Table, QTable
+import socket
+import datetime
+import pkg_resources
 import numpy as np
 import matplotlib.pyplot as plt
 from astropy.stats import sigma_clip, mad_std
@@ -39,7 +47,26 @@ def get_subbands(filename, beam_label="beam_0"):
     return sb_avail["LABEL"]
 
 
+def update_history(filename, args):
+    # Open HDF5 file
+    with h5py.File(filename, mode="r+") as f:
+        # Read header info
+        dset = f["metadata"]["history"]
+        history = Table(dset[:])
+        history.add_row(
+            {
+                "DATE": datetime.datetime.now().strftime("%Y-%m-%d-%H:%M:%S"),
+                "PROC": "atflagger",
+                "PROC_DESCR": f"Automatic flagging of UWL data (version {pkg_resources.get_distribution('atflagger').version})",
+                "PROC_ARGS": str(args),
+                "PROC_HOST": socket.getfqdn(),
+            }
+        )
+        del f["metadata"]["history"]
+        _ = f.create_dataset("metadata/history", data=history.as_array())
+
 def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False):
+    args = locals()
     # Open HDF5 file
     with h5py.File(filename, "r+") as h5:
         # Read header info
@@ -110,51 +137,57 @@ def flag(filename, sb_label, beam_label="beam_0", sigma=3, n_windows=100, use_we
         )
         log.info(f"Subband {sb_label} now has {f_per:.2f}% flagged - {filename}")
 
+        # Update history
+        update_history(filename, args)
+
 
 def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False):
     # Initialise dask
-    cluster = LocalCluster()
-    client = Client(cluster)
-    log.info(f"Dask running at {client.dashboard_link}")
+    with LocalCluster() as cluster:
+        with Client(cluster) as client:
+            log.info(f"Dask running at {client.dashboard_link}")
 
-    for filename in filenames:
-        log.info(f"Processing file {filename}")
-        # Copy hdf5 file
-        new_filename = filename[::-1].replace(
-            ".hdf"[::-1],
-            ".atflagged.hdf"[::-1],
-            1,
-        )[::-1] # Reverse to replace .hdf with .atflagged.hdf
-        shutil.copy(filename, new_filename)
+            for filename in filenames:
+                log.info(f"Processing file {filename}")
+                # Copy hdf5 file
+                exts = ("hdf", "hdf5", "sdhdf")
+                if not any(filename.endswith(f".{ext}") for ext in exts):
+                    raise ValueError(f"I don't recognose the file extension of '{filename}' (must be one of {exts})")
+                for ext in exts:
+                    if filename.endswith(f".{ext}"):
+                        break
 
-        log.info(f"Create new file: {new_filename}")
+                new_filename = filename[::-1].replace(
+                    f".{ext}"[::-1],
+                    f".atflagged.{ext}"[::-1],
+                    1,
+                )[::-1] # Reverse to replace .hdf with .atflagged.hdf
+                shutil.copy(filename, new_filename)
 
-        sb_avail = get_subbands(new_filename, beam_label=beam_label)
+                log.info(f"Create new file: {new_filename}")
 
-        # Iterate through subbands
-        for sb_label in sb_avail:
-            flag(
-                new_filename,
-                sb_label,
-                beam_label=beam_label,
-                sigma=sigma,
-                n_windows=n_windows,
-                use_weights=use_weights,
-            )
+                sb_avail = get_subbands(new_filename, beam_label=beam_label)
 
-        log.info(f"Finished processing file {filename}")
+                # Iterate through subbands
+                for sb_label in sb_avail:
+                    flag(
+                        new_filename,
+                        sb_label,
+                        beam_label=beam_label,
+                        sigma=sigma,
+                        n_windows=n_windows,
+                        use_weights=use_weights,
+                    )
+                log.info(f"Finished processing file {filename}")
 
-    # Close dask
-    client.close()
-    cluster.close()
-    log.info("Done!")
+            log.info("Done!")
 
 
 def cli():
     """Command-line interface"""
     import argparse
 
-    parser = argparse.ArgumentParser(description="Flag SDHDF data")
+    parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("filenames", nargs="+", type=str, help="Input SDHDF file(s)")
     parser.add_argument("--beam", type=str, default="beam_0", help="Beam label")
     parser.add_argument(
