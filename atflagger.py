@@ -245,11 +245,20 @@ def flag(
     return True
 
 
-def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False, report=None):
+def main(
+    filenames,
+    beam_label="beam_0",
+    sigma=3,
+    n_windows=100,
+    use_weights=False,
+    report=None,
+):
     args = locals()
     _ = args.pop("filenames")
     # Initialise dask
-    with LocalCluster(threads_per_worker=1) as cluster, Client(cluster) as client, performance_report(filename=report):
+    with LocalCluster(threads_per_worker=1) as cluster, Client(
+        cluster
+    ) as client, performance_report(filename=report):
         logger.info(f"Dask running at {client.dashboard_link}")
         if report is not None:
             logger.info(f"Writting report to {report}")
@@ -291,7 +300,6 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=Fal
             hists.append(hist)
 
         _ = compute(hists)
-
 
     logger.info("Done!")
 
