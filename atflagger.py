@@ -249,50 +249,48 @@ def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=Fal
     args = locals()
     _ = args.pop("filenames")
     # Initialise dask
-    with LocalCluster(threads_per_worker=1) as cluster:
-        with Client(cluster) as client:
-            with performance_report(filename=report):
-                logger.info(f"Dask running at {client.dashboard_link}")
-                if report is not None:
-                    logger.info(f"Writting report to {report}")
+    with LocalCluster(threads_per_worker=1) as cluster, Client(cluster) as client, performance_report(filename=report):
+        logger.info(f"Dask running at {client.dashboard_link}")
+        if report is not None:
+            logger.info(f"Writting report to {report}")
 
-                todos = {}
-                for filename in filenames:
-                    logger.info(f"Processing file {filename}")
-                    # Copy hdf5 file
-                    exts = ("hdf", "hdf5", "sdhdf", "h5")
-                    if not any(filename.endswith(f".{ext}") for ext in exts):
-                        raise ValueError(
-                            f"I don't recognose the file extension of '{filename}' (must be one of {exts})"
-                        )
-                    for ext in exts:
-                        if filename.endswith(f".{ext}"):
-                            break
+        todos = {}
+        for filename in filenames:
+            logger.info(f"Processing file {filename}")
+            # Copy hdf5 file
+            exts = ("hdf", "hdf5", "sdhdf", "h5")
+            if not any(filename.endswith(f".{ext}") for ext in exts):
+                raise ValueError(
+                    f"I don't recognose the file extension of '{filename}' (must be one of {exts})"
+                )
+            for ext in exts:
+                if filename.endswith(f".{ext}"):
+                    break
 
-                    new_filename = copy_file(filename, ext=ext)
+            new_filename = copy_file(filename, ext=ext)
 
-                    sb_avail = get_subbands(new_filename, beam_label=beam_label)
+            sb_avail = get_subbands(new_filename, beam_label=beam_label)
 
-                    todos[new_filename] = sb_avail
+            todos[new_filename] = sb_avail
 
-                # Compute to concrete values
-                todos = compute(todos)[0]  # First elemment of single-element tuple
+        # Compute to concrete values
+        todos = compute(todos)[0]  # First elemment of single-element tuple
 
-                hists = []
-                for new_filename in todos.keys():
-                    # Iterate through subbands inside flag function
-                    flagged = flag(
-                        new_filename,
-                        todos[new_filename],
-                        beam_label=beam_label,
-                        sigma=sigma,
-                        n_windows=n_windows,
-                        use_weights=use_weights,
-                    )
-                    hist = update_history(new_filename, args, flagged)
-                    hists.append(hist)
+        hists = []
+        for new_filename in todos.keys():
+            # Iterate through subbands inside flag function
+            flagged = flag(
+                new_filename,
+                todos[new_filename],
+                beam_label=beam_label,
+                sigma=sigma,
+                n_windows=n_windows,
+                use_weights=use_weights,
+            )
+            hist = update_history(new_filename, args, flagged)
+            hists.append(hist)
 
-                _ = compute(hists)
+        _ = compute(hists)
 
 
     logger.info("Done!")
