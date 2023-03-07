@@ -17,7 +17,7 @@ import xarray as xr
 from astropy.stats import mad_std, sigma_clip
 from astropy.table import QTable, Table
 from dask import compute, delayed
-from dask.distributed import Client, LocalCluster
+from dask.distributed import Client, LocalCluster, performance_report
 from IPython import embed
 from tqdm.auto import tqdm, trange
 
@@ -245,50 +245,55 @@ def flag(
     return True
 
 
-def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False):
+def main(filenames, beam_label="beam_0", sigma=3, n_windows=100, use_weights=False, report=None):
     args = locals()
     _ = args.pop("filenames")
     # Initialise dask
     with LocalCluster(threads_per_worker=1) as cluster:
         with Client(cluster) as client:
-            logger.info(f"Dask running at {client.dashboard_link}")
-            todos = {}
-            for filename in filenames:
-                logger.info(f"Processing file {filename}")
-                # Copy hdf5 file
-                exts = ("hdf", "hdf5", "sdhdf", "h5")
-                if not any(filename.endswith(f".{ext}") for ext in exts):
-                    raise ValueError(
-                        f"I don't recognose the file extension of '{filename}' (must be one of {exts})"
+            with performance_report(filename=report):
+                logger.info(f"Dask running at {client.dashboard_link}")
+                if report is not None:
+                    logger.info(f"Writting report to {report}")
+
+                todos = {}
+                for filename in filenames:
+                    logger.info(f"Processing file {filename}")
+                    # Copy hdf5 file
+                    exts = ("hdf", "hdf5", "sdhdf", "h5")
+                    if not any(filename.endswith(f".{ext}") for ext in exts):
+                        raise ValueError(
+                            f"I don't recognose the file extension of '{filename}' (must be one of {exts})"
+                        )
+                    for ext in exts:
+                        if filename.endswith(f".{ext}"):
+                            break
+
+                    new_filename = copy_file(filename, ext=ext)
+
+                    sb_avail = get_subbands(new_filename, beam_label=beam_label)
+
+                    todos[new_filename] = sb_avail
+
+                # Compute to concrete values
+                todos = compute(todos)[0]  # First elemment of single-element tuple
+
+                hists = []
+                for new_filename in todos.keys():
+                    # Iterate through subbands inside flag function
+                    flagged = flag(
+                        new_filename,
+                        todos[new_filename],
+                        beam_label=beam_label,
+                        sigma=sigma,
+                        n_windows=n_windows,
+                        use_weights=use_weights,
                     )
-                for ext in exts:
-                    if filename.endswith(f".{ext}"):
-                        break
+                    hist = update_history(new_filename, args, flagged)
+                    hists.append(hist)
 
-                new_filename = copy_file(filename, ext=ext)
+                _ = compute(hists)
 
-                sb_avail = get_subbands(new_filename, beam_label=beam_label)
-
-                todos[new_filename] = sb_avail
-
-            # Compute to concrete values
-            todos = compute(todos)[0]  # First elemment of single-element tuple
-
-            hists = []
-            for new_filename in todos.keys():
-                # Iterate through subbands
-                flagged = flag(
-                    new_filename,
-                    todos[new_filename],
-                    beam_label=beam_label,
-                    sigma=sigma,
-                    n_windows=n_windows,
-                    use_weights=use_weights,
-                )
-                hist = update_history(new_filename, args, flagged)
-                hists.append(hist)
-
-            _ = compute(hists)
 
     logger.info("Done!")
 
@@ -299,21 +304,31 @@ def cli():
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("filenames", nargs="+", type=str, help="Input SDHDF file(s)")
-    parser.add_argument("--beam", type=str, default="beam_0", help="Beam label")
+    parser.add_argument("-b", "--beam", type=str, default="beam_0", help="Beam label")
     parser.add_argument(
-        "--sigma", type=float, default=3, help="Sigma clipping threshold"
+        "-s", "--sigma", type=float, default=3, help="Sigma clipping threshold"
     )
     parser.add_argument(
-        "--n_windows",
+        "-n",
+        "--n-windows",
         type=int,
         default=100,
         help="Number of windows to use in box filter",
     )
     parser.add_argument(
-        "--use_weights",
+        "-w",
+        "--use-weights",
         action="store_true",
         help="Use weights table instead of flag table",
     )
+    parser.add_argument(
+        "-r",
+        "--report",
+        type=str,
+        default=None,
+        help="Optionally save the Dask (html) report to a file",
+    )
+
     args = parser.parse_args()
     main(
         filenames=args.filenames,
@@ -321,6 +336,7 @@ def cli():
         sigma=args.sigma,
         n_windows=args.n_windows,
         use_weights=args.use_weights,
+        report=args.report,
     )
 
 
