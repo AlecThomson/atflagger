@@ -19,7 +19,7 @@ pip install git+https://github.com/AlecThomson/atflagger
 ## Usage
 ```
 ❯ atflagger -h
-usage: atflagger [-h] [-b BEAM] [-s SIGMA] [-n N_WINDOWS] [-w] [-r REPORT] filenames [filenames ...]
+usage: atflagger [-h] [-i] [-b BEAM] [-s SIGMA] [-n N_WINDOWS] [-w] [-r REPORT] filenames [filenames ...]
 
 atflagger - Automatic flagging of UWL data.
 
@@ -28,6 +28,7 @@ positional arguments:
 
 optional arguments:
   -h, --help            show this help message and exit
+  -i, --inplace         Update flags in-place (default: create new file)
   -b BEAM, --beam BEAM  Beam label
   -s SIGMA, --sigma SIGMA
                         Sigma clipping threshold
