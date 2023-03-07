@@ -19,17 +19,21 @@ pip install git+https://github.com/AlecThomson/atflagger
 ## Usage
 ```
 ❯ atflagger -h
-usage: atflagger [-h] [--beam BEAM] [--sigma SIGMA] [--n_windows N_WINDOWS] filenames [filenames ...]
+usage: atflagger [-h] [-b BEAM] [-s SIGMA] [-n N_WINDOWS] [-w] [-r REPORT] filenames [filenames ...]
 
-Flag SDHDF data
+atflagger - Automatic flagging of UWL data.
 
 positional arguments:
   filenames             Input SDHDF file(s)
 
 optional arguments:
   -h, --help            show this help message and exit
-  --beam BEAM           Beam label
-  --sigma SIGMA         Sigma clipping threshold
-  --n_windows N_WINDOWS
+  -b BEAM, --beam BEAM  Beam label
+  -s SIGMA, --sigma SIGMA
+                        Sigma clipping threshold
+  -n N_WINDOWS, --n-windows N_WINDOWS
                         Number of windows to use in box filter
+  -w, --use-weights     Use weights table instead of flag table
+  -r REPORT, --report REPORT
+                        Optionally save the Dask (html) report to a file
 ```
