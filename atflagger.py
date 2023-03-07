@@ -247,6 +247,7 @@ def flag(
 
 def main(
     filenames,
+    inplace=False,
     beam_label="beam_0",
     sigma=3,
     n_windows=100,
@@ -255,6 +256,8 @@ def main(
 ):
     args = locals()
     _ = args.pop("filenames")
+    if inplace:
+        logger.warning("Running in-place - this will overwrite the previous flag data!")
     # Initialise dask
     with LocalCluster(threads_per_worker=1) as cluster, Client(
         cluster
@@ -276,7 +279,7 @@ def main(
                 if filename.endswith(f".{ext}"):
                     break
 
-            new_filename = copy_file(filename, ext=ext)
+            new_filename = copy_file(filename, ext=ext) if not inplace else filename
 
             sb_avail = get_subbands(new_filename, beam_label=beam_label)
 
@@ -310,6 +313,12 @@ def cli():
 
     parser = argparse.ArgumentParser(description=__doc__)
     parser.add_argument("filenames", nargs="+", type=str, help="Input SDHDF file(s)")
+    parser.add_argument(
+        "-i",
+        "--inplace",
+        action="store_true",
+        help="Update flags in-place (default: create new file)",
+    )
     parser.add_argument("-b", "--beam", type=str, default="beam_0", help="Beam label")
     parser.add_argument(
         "-s", "--sigma", type=float, default=3, help="Sigma clipping threshold"
@@ -338,6 +347,7 @@ def cli():
     args = parser.parse_args()
     main(
         filenames=args.filenames,
+        inplace=args.inplace,
         beam_label=args.beam,
         sigma=args.sigma,
         n_windows=args.n_windows,
