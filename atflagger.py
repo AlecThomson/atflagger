@@ -253,13 +253,15 @@ def main(
     n_windows=100,
     use_weights=False,
     report=None,
+    cores=None,
+    threads_per_worker=None,
 ):
     args = locals()
     _ = args.pop("filenames")
     if inplace:
         logger.warning("Running in-place - this will overwrite the previous flag data!")
     # Initialise dask
-    with LocalCluster(threads_per_worker=1) as cluster, Client(
+    with LocalCluster(n_workers=cores, threads_per_worker=threads_per_worker) as cluster, Client(
         cluster
     ) as client, performance_report(filename=report):
         logger.info(f"Dask running at {client.dashboard_link}")
@@ -343,6 +345,20 @@ def cli():
         default=None,
         help="Optionally save the Dask (html) report to a file",
     )
+    parser.add_argument(
+        "-c",
+        "--cores",
+        type=int,
+        default=None,
+        help="Number of workers to use (default: Dask automatic configuration)",
+    )
+    parser.add_argument(
+        "-t",
+        "--threads-per-worker",
+        type=int,
+        default=None,
+        help="Number of threads per worker (default: Dask automatic configuration)",
+    )
 
     args = parser.parse_args()
     main(
@@ -353,6 +369,8 @@ def cli():
         n_windows=args.n_windows,
         use_weights=args.use_weights,
         report=args.report,
+        cores=args.cores,
+        threads_per_worker=args.threads_per_worker,
     )
 
 
