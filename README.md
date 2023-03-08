@@ -21,7 +21,8 @@ pip install git+https://github.com/AlecThomson/atflagger
 ❯ atflagger -h
 usage: atflagger [-h] [-i] [-b BEAM] [-s SIGMA] [-n N_WINDOWS] [-w] [-r REPORT] [-c CORES] [-t THREADS_PER_WORKER] filenames [filenames ...]
 
-atflagger - Automatic flagging of UWL data.
+atflagger - Automatic flagging of UWL data. This flagger divides each subband into a number of windows, and then uses sigma clipping to remove outliers. The number of windows is set by the 'n-windows' argument, and the number of sigma is set by the 'sigma' argument. Parallelism is handled by dask.distributed. The 'cores' argument sets the number of
+Dask workers, and 'threads-per-worker' sets the number of threads. See https://docs.dask.org/en/stable/deploying-python.html#reference for more information.
 
 positional arguments:
   filenames             Input SDHDF file(s)
