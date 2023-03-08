@@ -19,7 +19,7 @@ pip install git+https://github.com/AlecThomson/atflagger
 ## Usage
 ```
 ❯ atflagger -h
-usage: atflagger [-h] [-i] [-b BEAM] [-s SIGMA] [-n N_WINDOWS] [-w] [-r REPORT] filenames [filenames ...]
+usage: atflagger [-h] [-i] [-b BEAM] [-s SIGMA] [-n N_WINDOWS] [-w] [-r REPORT] [-c CORES] [-t THREADS_PER_WORKER] filenames [filenames ...]
 
 atflagger - Automatic flagging of UWL data.
 
@@ -37,4 +37,8 @@ optional arguments:
   -w, --use-weights     Use weights table instead of flag table
   -r REPORT, --report REPORT
                         Optionally save the Dask (html) report to a file
+  -c CORES, --cores CORES
+                        Number of workers to use (default: Dask automatic configuration)
+  -t THREADS_PER_WORKER, --threads-per-worker THREADS_PER_WORKER
+                        Number of threads per worker (default: Dask automatic configuration)
 ```
