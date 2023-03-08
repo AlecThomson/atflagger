@@ -261,9 +261,9 @@ def main(
     if inplace:
         logger.warning("Running in-place - this will overwrite the previous flag data!")
     # Initialise dask
-    with LocalCluster(n_workers=cores, threads_per_worker=threads_per_worker) as cluster, Client(
-        cluster
-    ) as client, performance_report(filename=report):
+    with LocalCluster(
+        n_workers=cores, threads_per_worker=threads_per_worker
+    ) as cluster, Client(cluster) as client, performance_report(filename=report):
         logger.info(f"Dask running at {client.dashboard_link}")
         if report is not None:
             logger.info(f"Writting report to {report}")
