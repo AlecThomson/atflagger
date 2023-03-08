@@ -18,6 +18,7 @@ import logging
 import shutil
 import socket
 import warnings
+from contextlib import nullcontext
 
 import h5py
 import matplotlib.pyplot as plt
@@ -273,9 +274,11 @@ def main(
     # Initialise dask
     with LocalCluster(
         n_workers=cores, threads_per_worker=threads_per_worker
-    ) as cluster, Client(cluster) as client, performance_report(filename=report):
+    ) as cluster, Client(cluster) as client, performance_report(
+        filename=report
+    ) if report else nullcontext():
         logger.info(f"Dask running at {client.dashboard_link}")
-        if report is not None:
+        if report:
             logger.info(f"Writting report to {report}")
 
         todos = {}
