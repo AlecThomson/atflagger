@@ -197,7 +197,7 @@ def flag(
             )
             sb_freq = f"{beam_label}/{sb_label}/astronomy_data/frequency"
             data = h5[sb_data]
-            freq = np.array(h5[sb_freq])
+            freq = np.squeeze(h5[sb_freq]) # Ensure 1D
             flag = np.array(h5[sb_flag])
 
             f_per = np.sum(flag) / np.sum(np.ones_like(flag)) * 100
