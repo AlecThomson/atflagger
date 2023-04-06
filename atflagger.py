@@ -263,61 +263,49 @@ def main(
     sigma=3,
     n_windows=100,
     use_weights=False,
-    report=None,
-    cores=None,
-    threads_per_worker=None,
 ):
     args = locals()
     _ = args.pop("filenames")
     if inplace:
         logger.warning("Running in-place - this will overwrite the previous flag data!")
-    # Initialise dask
-    with LocalCluster(
-        n_workers=cores, threads_per_worker=threads_per_worker
-    ) as cluster, Client(cluster) as client, performance_report(
-        filename=report
-    ) if report else nullcontext():
-        logger.info(f"Dask running at {client.dashboard_link}")
-        if report:
-            logger.info(f"Writting report to {report}")
 
-        todos = {}
-        for filename in filenames:
-            logger.info(f"Processing file {filename}")
-            # Copy hdf5 file
-            exts = ("hdf", "hdf5", "sdhdf", "h5")
-            if not any(filename.endswith(f".{ext}") for ext in exts):
-                raise ValueError(
-                    f"I don't recognose the file extension of '{filename}' (must be one of {exts})"
-                )
-            for ext in exts:
-                if filename.endswith(f".{ext}"):
-                    break
-
-            new_filename = copy_file(filename, ext=ext) if not inplace else filename
-
-            sb_avail = get_subbands(new_filename, beam_label=beam_label)
-
-            todos[new_filename] = sb_avail
-
-        # Compute to concrete values
-        todos = compute(todos)[0]  # First elemment of single-element tuple
-
-        hists = []
-        for new_filename in todos.keys():
-            # Iterate through subbands inside flag function
-            flagged = flag(
-                new_filename,
-                todos[new_filename],
-                beam_label=beam_label,
-                sigma=sigma,
-                n_windows=n_windows,
-                use_weights=use_weights,
+    todos = {}
+    for filename in filenames:
+        logger.info(f"Processing file {filename}")
+        # Copy hdf5 file
+        exts = ("hdf", "hdf5", "sdhdf", "h5")
+        if not any(filename.endswith(f".{ext}") for ext in exts):
+            raise ValueError(
+                f"I don't recognose the file extension of '{filename}' (must be one of {exts})"
             )
-            hist = update_history(new_filename, args, flagged)
-            hists.append(hist)
+        for ext in exts:
+            if filename.endswith(f".{ext}"):
+                break
 
-        _ = compute(hists)
+        new_filename = copy_file(filename, ext=ext) if not inplace else filename
+
+        sb_avail = get_subbands(new_filename, beam_label=beam_label)
+
+        todos[new_filename] = sb_avail
+
+    # Compute to concrete values
+    todos = compute(todos)[0]  # First elemment of single-element tuple
+
+    hists = []
+    for new_filename in todos.keys():
+        # Iterate through subbands inside flag function
+        flagged = flag(
+            new_filename,
+            todos[new_filename],
+            beam_label=beam_label,
+            sigma=sigma,
+            n_windows=n_windows,
+            use_weights=use_weights,
+        )
+        hist = update_history(new_filename, args, flagged)
+        hists.append(hist)
+
+    _ = compute(hists)
 
     logger.info("Done!")
 
@@ -374,17 +362,26 @@ def cli():
     )
 
     args = parser.parse_args()
-    main(
-        filenames=args.filenames,
-        inplace=args.inplace,
-        beam_label=args.beam,
-        sigma=args.sigma,
-        n_windows=args.n_windows,
-        use_weights=args.use_weights,
-        report=args.report,
-        cores=args.cores,
-        threads_per_worker=args.threads_per_worker,
-    )
+
+    # Initialise dask
+    with LocalCluster(
+        n_workers=args.cores, threads_per_worker=args.threads_per_worker
+    ) as cluster, Client(cluster) as client, performance_report(
+        filename=args.report
+    ) if args.report else nullcontext():
+
+        logger.info(f"Dask running at {client.dashboard_link}")
+        if args.report:
+            logger.info(f"Writting report to {args.report}")
+
+        main(
+            filenames=args.filenames,
+            inplace=args.inplace,
+            beam_label=args.beam,
+            sigma=args.sigma,
+            n_windows=args.n_windows,
+            use_weights=args.use_weights,
+        )
 
 
 if __name__ == "__main__":
